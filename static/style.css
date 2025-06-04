@@ -1,0 +1,39 @@
+/* 채팅창 내 사용자/봇 말풍선 구분 */
+.user-msg {
+    background-color: #dbeafe;
+    padding: 8px 12px;
+    border-radius: 12px;
+    margin-bottom: 4px;
+    align-self: flex-end;
+    max-width: 80%;
+  }
+  
+  .bot-msg {
+    background-color: #f3f4f6;
+    padding: 8px 12px;
+    border-radius: 12px;
+    margin-bottom: 4px;
+    align-self: flex-start;
+    max-width: 80%;
+  }
+  
+  /* 채팅 전체 박스 */
+  #chat-box {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* 로딩 애니메이션 */
+  .typing-dots::after {
+    content: "⠁⠂⠄";
+    animation: dots 1s steps(3, end) infinite;
+    display: inline-block;
+  }
+  
+  @keyframes dots {
+    0% { content: "⠁"; }
+    33% { content: "⠂"; }
+    66% { content: "⠄"; }
+    100% { content: "⠁"; }
+  }
+  

@@ -1,0 +1,2 @@
+
+uvicorn chatbot:app --reload

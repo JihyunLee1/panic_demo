@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="refresh" content="2"> <!-- ✅ 2초마다 새로고침 -->
+        <title>모델 로딩 중</title>
+        <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    </head>
+<body class="bg-black text-white flex items-center justify-center h-screen">
+  <div class="text-center">
+    <div class="text-xl mb-4 animate-pulse">🤖 모델을 로딩 중입니다...</div>
+    <div class="text-sm text-gray-400">잠시만 기다려 주세요</div>
+  </div>
+</body>
+<script>
+  async function checkStatus() {
+    try {
+      const res = await fetch("/status");
+      const data = await res.json();
+      if (data.ready) {
+        window.location.href = "/";
+      } else {
+        setTimeout(checkStatus, 2000);  // 2초마다 다시 체크
+      }
+    } catch {
+      setTimeout(checkStatus, 2000);
+    }
+  }
+
+  checkStatus();
+</script>
+</html>
