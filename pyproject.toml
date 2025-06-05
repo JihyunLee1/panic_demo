@@ -1,9 +1,20 @@
 [project]
 name = "panic-demo"
 version = "0.1.0"
-description = "Add your description here"
+description = "Panic counseling chatbot"
 readme = "README.md"
-requires-python = ">=3.12"
 dependencies = [
+    "cachetools>=6.0.0",
+    "fastapi>=0.115.12",
+    "jinja2>=3.1.6",
+    "langchain-openai>=0.3.19",
     "torch>=2.7.0",
+    "transformers>=4.52.4",
+    "uvicorn>=0.34.3",
+    "vllm>=0.9.0.1",
 ]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+

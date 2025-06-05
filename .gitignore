@@ -5,11 +5,10 @@
 env/
 venv/
 
-/logs
-/dials
-*.json
-/model
-
+/src/logs
+/src/dials
+/src/model
+/src/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
