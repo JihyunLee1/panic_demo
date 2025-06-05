@@ -167,10 +167,6 @@ async def chat(request: Request, req: ChatRequest):
     # update counters
     session_histories[session_id]["cnt"] = cnt
 
-    app.state.logger.log_and_print(
-        f"Session {session_id} -  Turn {cnt}: {system_utt}"
-    )
-
     # ── 4. SAVE LOG FOR THIS TURN  ---------------------------------
     save_turn_log(session_id, hist)
 
