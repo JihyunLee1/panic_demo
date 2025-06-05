@@ -113,6 +113,7 @@ async def chat(request: Request, req: ChatRequest):
     config      = request.app.state.config
     session_id  = req.session_id
     model       = request.app.state.model
+    logger      = request.app.state.logger
 
     # ── 1. initialize state if needed ───────────────────────────────
     if (
@@ -130,12 +131,18 @@ async def chat(request: Request, req: ChatRequest):
     session_histories[session_id]["history"].append(
         {"role": "Client", "message": req.user_utterance}
     )
-
+    logger.log_and_print(
+        f"Session {session_id}: {req.user_utterance}"
+    )
+    
     # ── 3. generate counselor reply ────────────────────────────────
     cnt   = session_histories[session_id]["cnt"] + 1  # next turn index
     hist  = session_histories[session_id]["history"]
 
     system_utt = model.generate( hist)
+    logger.log_and_print(
+        f"Session {session_id}: {system_utt}"
+    )
     
     # ── [종료 신호 처리] ──────────────────────────────────────────
     if "상담" in system_utt and "종료" in system_utt:

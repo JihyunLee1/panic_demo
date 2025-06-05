@@ -154,8 +154,9 @@ class CounselorAgent(Agent):
             inputs = self.tokenizer(prompt, return_tensors="pt")
             outputs = self.llm.generate(**inputs, max_new_tokens=128)
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # self.logger.log_and_print("prompt", prompt)
         self.logger.log_and_print("prompt", prompt)
-        self.logger.log_and_print("response", response)
+
         cleaned = response.strip()
         lc = cleaned.lower()
         if "counselor" not in lc and "상담사" not in lc and "assistant" not in lc and "客人" not in lc:
