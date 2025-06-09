@@ -62,7 +62,9 @@ async def get_default_message():
 def load_counselor(app: FastAPI):
     config_path = os.environ.get("CONFIG_PATH", "./demo_chat_config_kor.json")
     demo_config = json.load(open(config_path, "r", encoding="utf-8"))
-    logger = Logger(demo_config['log_path'])
+    log_path_cfg = demo_config["log_path"]
+    log_path = (LOG_DIR / log_path_cfg) if not Path(log_path_cfg).is_absolute() else Path(log_path_cfg)
+    logger = Logger(log_path)
     logger.log_and_print("Loading CounselingAPI with configuration...")
     app.state.config = demo_config
     app.state.logger = logger
