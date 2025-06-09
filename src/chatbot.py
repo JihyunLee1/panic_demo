@@ -45,7 +45,8 @@ async def get_default_message():
 
 # ✅ 백그라운드 CounselingAPI 로딩 함수
 def load_counselor(app: FastAPI):
-    demo_config = json.load(open("./demo_chat_config_kor.json"))
+    config_path = os.environ.get("CONFIG_PATH", "./demo_chat_config_kor.json")
+    demo_config = json.load(open(config_path, "r", encoding="utf-8"))
     logger = Logger(demo_config['log_path'])
     logger.log_and_print("Loading CounselingAPI with configuration...")
     app.state.config = demo_config

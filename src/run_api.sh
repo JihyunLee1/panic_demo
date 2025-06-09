@@ -1,1 +1,6 @@
-uvicorn chatbot:app --reload --host 0.0.0.0 --port 8000
+#!/bin/bash
+
+CONFIG_FILE=./demo_chat_config_kor.json
+PORT=$(jq -r '.chat_api_port' "$CONFIG_FILE")
+
+CONFIG_PATH=./demo_chat_config_kor.json uvicorn chatbot:app --reload --port 8000

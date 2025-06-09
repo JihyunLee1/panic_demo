@@ -9,7 +9,7 @@ import pdb
 class GeminiSafer:
     """Wrapper around the Gemini model that sanitizes counselor utterances."""
     def __init__(self, config: dict, logger):
-        self.model = config["gemini_model_name"]     # e.g., "gemini-pro"
+        self.model = config["gemini_model_name"]    
         self.api_key = config["gemini_api_key"]
         self.logger = logger
 
@@ -30,6 +30,7 @@ class GeminiSafer:
             "\n"
             "If the original utterance is already appropriate, return it unchanged.\n"
             "If continuing the conversation seems unhelpful or potentially harmful, reply only with: 상담을 종료합니다.\n"
+            "If the client is sufficiently stabilized, reply only with: 상담을 종료합니다.\n"
             "Add *no* explanations or comments—your response will be delivered directly to the client.\n"
             "Keep the response short and easy to understand, as the client is currently in a state of panic.\n"
             "⚠️ Your entire response must be in Korean.\n\n"
@@ -77,14 +78,15 @@ class Agent():
         
         self.use_vllm = demo_config.get("use_vllm", False)
         if self.use_vllm:
-            model_id=demo_config["model_id"]
-            vLLM_server=demo_config["vllm_server"]
+            vllm_port = demo_config.get("vllm_server_port", 8001)
+            model_id=demo_config["vllm_model_name"]
+            vLLM_server=f"http://localhost:{vllm_port}/v1"
             
             self.llm = OpenAI(
                 temperature=0.3,
                 openai_api_key='EMPTY',
                 openai_api_base=vLLM_server,
-                max_tokens=128,
+                max_tokens=demo_config.get("max_new_tokens", 128), # token to "generate" not "input"
                 model=model_id
             )
         else:
@@ -152,7 +154,8 @@ class CounselorAgent(Agent):
         else:
             # For transformers model
             inputs = self.tokenizer(prompt, return_tensors="pt")
-            outputs = self.llm.generate(**inputs, max_new_tokens=128)
+            max_new_tokens = self.config.get("max_new_tokens", 128)
+            outputs = self.llm.generate(**inputs, max_new_tokens=max_new_tokens)
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         # self.logger.log_and_print("prompt", prompt)
         self.logger.log_and_print("prompt", prompt)
