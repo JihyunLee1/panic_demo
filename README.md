@@ -59,8 +59,8 @@ Before running the vLLM server, you need to manually download the model into `sr
    mkdir -p src/model
    ```
 
-2. **Download the model checkpoint** from the following Google Drive link:
-   👉 [Download Model (Google Drive)](https://drive.google.com/drive/folders/1RHMkCdA1etSuOPz_6FcRn64s0FHpnzTD?usp=sharing)
+2. **Request the model checkpoint** by sending an email to:  
+   📧 [jihyunlee@postech.ac.kr](mailto:jihyunlee@postech.ac.kr)
 
 3. **Unzip or place the model files** into the `src/model/` folder.
 
