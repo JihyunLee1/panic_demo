@@ -9,7 +9,7 @@ venv/
 /src/dials
 /src/model
 /src/*.json
-
+config/config.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

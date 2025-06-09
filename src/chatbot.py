@@ -18,7 +18,7 @@ import pdb
 from model import CounselorAgent
 import secrets
 from cachetools import TTLCache
-
+from pathlib import Path
 
 
 session_histories = TTLCache(maxsize=1000, ttl=1800)
@@ -26,11 +26,26 @@ session_histories = TTLCache(maxsize=1000, ttl=1800)
 
 # FastAPI 앱 초기화
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
-os.makedirs("logs", exist_ok=True)
-os.makedirs("dials", exist_ok=True)
+
+# ──────────────────────────────────────────────
+# Path setup
+# ──────────────────────────────────────────────
+BASE_DIR = Path(__file__).resolve().parent            # .../repo_root/src
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATE_DIR = BASE_DIR / "templates"
+LOG_DIR = BASE_DIR / "logs"
+DIAL_DIR = BASE_DIR / "dials"
+
+# ensure directories exist
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+DIAL_DIR.mkdir(parents=True, exist_ok=True)
+
+# ──────────────────────────────────────────────
+# FastAPI mounts
+# ──────────────────────────────────────────────
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATE_DIR)
 
 # ✅ 모델 로딩 상태 체크 API
 @app.get("/status")
@@ -76,28 +91,28 @@ async def get_main(request: Request):
         return templates.TemplateResponse("loading.html", {"request": request})
     return templates.TemplateResponse("index.html", {"request": request})
 
-def save_and_clear_session(session_id: str, history):
-    log_path = os.path.join("dials", f"{session_id}.json")
+def save_and_clear_session(session_id: str, history: list[dict]):
     logger = app.state.logger
+
+    log_path = DIAL_DIR / f"{session_id}.json"        # ✅ 절대경로
+
     with open(log_path, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, ensure_ascii=False)
 
     logger.log_and_print(f"Session {session_id} saved to {log_path}")
+
     # 세션 히스토리 삭제
     del session_histories[session_id]
     logger.log_and_print(f"Session {session_id} cleared from memory.")
     
     
 def save_turn_log(session_id: str, history: list[dict]):
+    logger = app.state.logger
+    log_path = DIAL_DIR / f"{session_id}.json"        # ✅ 절대경로
 
-    logger    = app.state.logger
-    log_path   = os.path.join(
-        "dials", f"{session_id}.json"
-    )
     with open(log_path, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, ensure_ascii=False)
 
-    # small console cue
     logger.log_and_print(f"Turn log for session {session_id} saved to {log_path}")
     
 # ✅ 채팅 처리

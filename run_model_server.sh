@@ -1,12 +1,15 @@
 #!/bin/bash
 
-CONFIG_FILE=demo_chat_config_kor.json
+CONFIG_FILE=./config/config.json
 
 # jq를 사용하여 config에서 값 읽기
 MAX_MODEL_LEN=$(jq -r '.max_model_length' "$CONFIG_FILE")
 PORT=$(jq -r '.vllm_server_port' "$CONFIG_FILE")
 MODEL_PATH=$(jq -r '.vllm_model_path' "$CONFIG_FILE")
 MODEL_NAME=$(jq -r '.vllm_model_name' "$CONFIG_FILE")
+
+# 절대경로로 변환 (모델 경로)
+MODEL_PATH=$(realpath "$MODEL_PATH")
 
 # 고정 설정값
 DTYPE="float16"
