@@ -103,6 +103,29 @@ uvicorn src.chatbot:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
+---
+
+## 📚 API Documentation (Korean)
+
+A detailed, always‑up‑to‑date specification—including request/response JSON schemas, example cURL commands, and error‑handling guidelines—is maintained in Notion:
+
+[API Panic Counseling Chatbot Documentation](https://dolomite-beach-ce2.notion.site/API-Panic-Counseling-Chatbot-API-1c15483725bb809e9e79fbd1d0320f35)
+
+### Key Endpoints
+
+| Method | Path               | Purpose                                                                 |
+| ------ | ------------------ | ----------------------------------------------------------------------- |
+| `GET`  | `/status`          | Health‑check; returns `{ "ready": true/false }`                         |
+| `POST` | `/init-session`    | Creates a new counseling session and returns the first system utterance |
+| `POST` | `/chat`            | Sends a user utterance and receives the counselor reply                 |
+| `GET`  | `/default-message` | Provides a sample user utterance for quick testing                      |
+
+> ⚠️  The table above is a quick reference. **For payload examples, parameter details, and full error codes, please refer to the Notion link.**
+
+---
+
+
+
 ## 🧪 Features
 
 * ✅ Counselor utterance generation using local vLLM server
