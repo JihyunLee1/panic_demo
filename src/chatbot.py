@@ -19,6 +19,15 @@ from model import CounselorAgent
 import secrets
 from cachetools import TTLCache
 from pathlib import Path
+from fastapi import UploadFile, File, HTTPException
+import tempfile, openai, asyncio, aiofiles
+
+from fastapi import FastAPI, Query, HTTPException
+from fastapi.responses import StreamingResponse
+from openai import AsyncOpenAI
+import aiofiles.tempfile, io, asyncio, os
+
+
 
 
 session_histories = TTLCache(maxsize=1000, ttl=1800)
@@ -108,6 +117,9 @@ def save_and_clear_session(session_id: str, history: list[dict]):
     logger.log_and_print(f"Session {session_id} cleared from memory.")
     
     
+    
+    
+    
 def save_turn_log(session_id: str, history: list[dict]):
     logger = app.state.logger
     log_path = DIAL_DIR / f"{session_id}.json"        # ✅ 절대경로
@@ -190,6 +202,79 @@ async def chat(request: Request, req: ChatRequest):
 
     # ── 5. reply to frontend ───────────────────────────────────────
     return ChatResponse(system_utterance=system_utt, end_signal=False)
+
+
+
+@app.post("/speech-to-text")
+async def speech_to_text(file: UploadFile = File(...)):
+    """
+    MediaRecorder(webm)·mp3·wav 등을 받아 Whisper-1로 전사.
+    반환 형식: { "transcript": "..." }
+    """
+    api_key = app.state.config.get("openai_api_key")
+    # 0) 파일 포맷 체크 (선택)  -----------------------------------
+    if file.content_type not in {
+        "audio/webm", "audio/wav", "audio/mpeg", "audio/mp3", "audio/ogg"
+    }:
+        raise HTTPException(status_code=415, detail="Unsupported audio format")
+
+    # 1) 임시 파일 저장  ------------------------------------------
+    suffix = Path(file.filename).suffix or ".webm"
+    async with aiofiles.tempfile.NamedTemporaryFile(
+        delete=False, suffix=suffix
+    ) as tmp:
+        await tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    # 2) Whisper 호출 (비동기 클라이언트)  ------------------------
+    client = openai.AsyncOpenAI(api_key=api_key)
+
+    try:
+        with open(tmp_path, "rb") as audio_f:      # 동기 open
+            transcription = await client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_f,                       # io.IOBase 지원
+                response_format="text",
+                language="ko"
+            )
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)  # 임시 파일 삭제
+
+    return {"transcript": transcription.strip()}
+
+
+
+@app.get("/tts")
+async def tts(text: str = Query(..., max_length=500)):
+    VOICE = "alloy"   
+    """
+    ?text= 인코딩된 문장을 받아 OpenAI TTS mp3 스트림 반환
+    """
+    client = AsyncOpenAI(api_key=app.state.config.get("openai_api_key"))
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Empty text")
+    # pdb.set_trace()  # 디버깅용
+    # OpenAI TTS 호출 (async)
+    try:
+        response = await client.audio.speech.create(
+            model="tts-1",      # 최신 모델
+            voice=VOICE,
+            input=text,
+            response_format="mp3"   # ← 여기!
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS error: {e}")
+
+    # 응답은 bytes
+    audio_bytes = response.content  
+    audio_io = io.BytesIO(audio_bytes)
+    audio_io.seek(0)
+
+    return StreamingResponse(
+        audio_io,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "public, max-age=86400"}   # 간단 캐싱
+    )
 
 @app.post("/init-session")
 async def init_session():

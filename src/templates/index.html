@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <title>Panic Chatbot 🤖</title>
+    
+    <!-- Tailwind CSS -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
     <link href="/static/style.css" rel="stylesheet" />
   </head>
@@ -10,22 +12,39 @@
     <div class="bg-white shadow-2xl rounded-2xl w-full max-w-xl p-6 flex flex-col space-y-4">
       <!-- Title -->
       <h1 class="text-3xl font-bold text-center text-blue-700">Urgent Panic Counseling 🤖</h1>
+      <h6 class="text-gray-600 text-center">AI 상담사와 대화해보세요, 소리가 나오니 놀라지마세요.</h6>
 
       <!-- Chat Box -->
       <div id="chat-box" class="h-80 overflow-y-auto border border-gray-200 p-4 rounded bg-gray-50 text-sm flex flex-col space-y-2"></div>
 
-      <!-- Input + Send -->
-      <div class="flex">
+      <!-- Input + Send + Voice -->
+      <div class="flex items-stretch">
+        <!-- Textarea -->
         <textarea id="user-input"
           rows="2"
           onkeydown="handleKey(event)"
           class="flex-grow border border-gray-300 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
           placeholder="Type your message..."></textarea>
-          <button id="send-button"
+
+        <!-- Voice (Mic) Button -->
+        <button id="mic-button"
+          aria-label="Start voice input"
+          onclick="toggleRecording()"
+          class="bg-gray-100 border-t border-b border-gray-300 px-4 flex items-center hover:bg-gray-200 focus:outline-none">
+          <!-- Mic Icon (Heroicons solid) -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M9 2a3 3 0 00-3 3v4a3 3 0 006 0V5a3 3 0 00-3-3z" />
+            <path d="M5 10a5 5 0 0010 0h-1a4 4 0 11-8 0H5z" />
+            <path d="M10 18a7 7 0 007-7h-1a6 6 0 11-12 0H3a7 7 0 007 7z" />
+          </svg>
+        </button>
+
+        <!-- Send Button -->
+        <button id="send-button"
           onclick="sendMessage()"
           class="bg-blue-500 text-white px-4 py-2 rounded-r-lg hover:bg-blue-600 transition-colors">
           Send
-</button>
+        </button>
       </div>
 
       <!-- Restart Button -->
@@ -39,6 +58,8 @@
       </div>
     </div>
 
+    <!-- Main script -->
     <script src="/static/script.js"></script>
+    <!-- Add voice handling in script.js (toggleRecording) using Web Speech API or preferred library -->
   </body>
 </html>

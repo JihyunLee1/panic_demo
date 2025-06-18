@@ -1,111 +1,152 @@
-let isWaiting = false;
+/* Panic Counseling Chat – frontend logic (text + voice + bot TTS)
+   v11: Web Speech API 제거 → MediaRecorder + inline TTS only */
 
-let session_id = null;
+// --------------------------------------------------
+// GLOBAL STATE
+// --------------------------------------------------
+let isWaiting   = false;
+let session_id  = null;
+let mediaRecorder = null;
+let audioChunks   = [];
+let isRecording   = false;
 
+// --------------------------------------------------
+// CONFIG
+// --------------------------------------------------
+const HOVER_CLASS  = "hover:bg-gray-200";
+const RECORD_CLASS = "bg-red-300";
+const PH_LISTENING = "듣고 있어요…";
+const PH_DEFAULT   = "Type your message...";
 
-window.onload = async function () {
-  // ✅ 세션 ID 초기화
-  session_id = sessionStorage.getItem("session_id");
-  if (!session_id) {
-    console.log("세션 ID가 없습니다. 새로운 세션을 초기화합니다.");
-    const res = await fetch("/init-session", { method: "POST" });
-    const data = await res.json();
-    session_id = data.session_id;
-    sessionStorage.setItem("session_id", session_id);
-  }
+// --------------------------------------------------
+// DOM SHORTCUTS
+// --------------------------------------------------
+const $box  = () => document.getElementById("user-input");
+const $btn  = () => document.getElementById("mic-button");
+const $chat = () => document.getElementById("chat-box");
 
-  // 기본 메시지 초기화
-  const response = await fetch("/default-message");
-  const data = await response.json();
-  document.getElementById("user-input").value = data.default_message;
-
-  const status = await fetch("/status");
-  const ready = await status.json();
-  if (ready) {
-    appendMessage("bot", "안녕하세요, 공황 응급 지원입니다. 어떻게 도와드릴까요?");
-  }
-};
-
-function handleKey(event) {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    if (!event.repeat) sendMessage();
-  }
+// --------------------------------------------------
+// TTS (inline)  ------------------------------------
+// --------------------------------------------------
+const ttsCache = new Map();
+async function playTTS(text) {
+  if (!text.trim()) return;
+  if (ttsCache.has(text)) return new Audio(ttsCache.get(text)).play();
+  try {
+    const res = await fetch(`/tts?text=${encodeURIComponent(text)}`);
+    if (!res.ok) throw new Error(res.status);
+    const buf = await res.arrayBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: res.headers.get("Content-Type") || "audio/mpeg" }));
+    ttsCache.set(text, url);
+    new Audio(url).play();
+  } catch (e) { console.error("TTS fetch error", e); }
 }
 
-function appendMessage(role, message) {
-  const chatBox = document.getElementById("chat-box");
-  const className = role === "user" ? "user-msg self-end" : "bot-msg";
-  const sender = role === "user" ? "You" : "Bot";
-  chatBox.innerHTML += `<div class="${className}"><strong>${sender}:</strong> ${message}</div>`;
-  chatBox.scrollTop = chatBox.scrollHeight;
+// --------------------------------------------------
+// RECORDING UI -------------------------------------
+// --------------------------------------------------
+function setRecordUI(rec) {
+  isRecording = rec;
+  $btn().classList.toggle(RECORD_CLASS, rec);
+  $btn().classList.toggle(HOVER_CLASS, !rec);
+  $box().placeholder = rec ? PH_LISTENING : ($box().value.trim() ? $box().placeholder : PH_DEFAULT);
 }
+
+// --------------------------------------------------
+// MEDIARECORDER (server‑side ASR) ONLY --------------
+// --------------------------------------------------
+async function startMediaRecorder() {
+  if (location.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(location.hostname)) {
+    alert("마이크는 HTTPS(또는 localhost)에서만 사용 가능합니다.");
+    return false;
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(e => { alert(e.message); return null; });
+  if (!stream) return false;
+
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+  mediaRecorder.onstop = async () => {
+    setRecordUI(false);
+    const blob = new Blob(audioChunks, { type: "audio/webm" });
+    audioChunks = [];
+    const fd = new FormData();
+    fd.append("file", blob, "speech.webm");
+    try {
+      const r = await fetch("/speech-to-text", { method: "POST", body: fd });
+      const { transcript } = await r.json();
+      if (transcript) $box().value = transcript;
+    } catch (err) { console.error("ASR upload error", err); }
+  };
+
+  mediaRecorder.start();
+  setRecordUI(true);
+  return true;
+}
+
+async function toggleRecording() {
+  if (!isRecording && !$box().disabled) $box().value = "";
+  if (!mediaRecorder) await startMediaRecorder();
+  else if (mediaRecorder.state === "recording") mediaRecorder.stop();
+  else { mediaRecorder.start(); setRecordUI(true); }
+}
+
+// --------------------------------------------------
+// CHAT ---------------------------------------------
+// --------------------------------------------------
+function appendMessage(role, msg) {
+  const cls = role === "user" ? "user-msg self-end" : "bot-msg";
+  const who = role === "user" ? "You" : "Bot";
+  $chat().insertAdjacentHTML("beforeend", `<div class="${cls}"><strong>${who}:</strong> ${msg}</div>`);
+  $chat().scrollTop = $chat().scrollHeight;
+  if (role === "bot") playTTS(msg);
+}
+
+function handleKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!e.repeat) sendMessage(); } }
 
 async function sendMessage() {
-  if (isWaiting) return;
-  isWaiting = true;
+  const msg = $box().value.trim(); if (!msg || isWaiting) return; isWaiting = true;
+  const sendBtn = document.getElementById("send-button");
+  [$box(), sendBtn].forEach(el => { el.disabled = true; el.style.opacity = 0.6; });
 
-  const inputBox = document.getElementById("user-input");
-  const sendButton = document.getElementById("send-button");
-  const chatBox = document.getElementById("chat-box");
-  const message = inputBox.value.trim();
-  if (!message) {
-    isWaiting = false;
-    return;
-  }
-
-  inputBox.disabled = true;
-  sendButton.disabled = true;
-  inputBox.style.opacity = 0.6;
-  sendButton.style.opacity = 0.5;
-
-  appendMessage("user", message);
-
-  const loadingId = `loading-${Date.now()}`;
-  chatBox.innerHTML += `<div id="${loadingId}" class="bot-msg typing-dots text-gray-500 italic">Bot is typing<span class="typing-dots"></span></div>`;
-  inputBox.value = "";
-  session_id = sessionStorage.getItem("session_id");
-  console.log(session_id);
+  appendMessage("user", msg);
+  const loadId = `load-${Date.now()}`;
+  $chat().insertAdjacentHTML("beforeend", `<div id="${loadId}" class="bot-msg italic text-gray-500">Bot is typing<span class="typing-dots"></span></div>`);
+  $box().value = ""; $box().placeholder = PH_DEFAULT;
 
   try {
-    const response = await fetch("/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({session_id: session_id, user_utterance: message}),
-    });
-
-    const data = await response.json();
-    const loadingElem = document.getElementById(loadingId);
-    if (loadingElem) {
-      loadingElem.outerHTML = `<div class="bot-msg"><strong>Bot:</strong> ${data.system_utterance}</div>`;
-    }
-
+    const res = await fetch("/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id, user_utterance: msg }) });
+    const data = await res.json();
+    document.getElementById(loadId).remove();
+    appendMessage("bot", data.system_utterance);
     if (!data.end_signal) {
-      inputBox.disabled = false;
-      sendButton.disabled = false;
-      inputBox.style.opacity = 1;
-      sendButton.style.opacity = 1;
-      inputBox.focus();
+      [$box(), sendBtn].forEach(el => { el.disabled = false; el.style.opacity = 1; });
+      $box().focus();
     } else {
-      inputBox.placeholder = "상담이 종료되었습니다.";
+      $box().placeholder = "상담이 종료되었습니다.";
       document.getElementById("restart-button").classList.remove("hidden");
     }
   } catch (err) {
-    const loadingElem = document.getElementById(loadingId);
-    if (loadingElem) {
-      loadingElem.outerHTML = `<div class="text-red-500">⚠️ 오류가 발생했습니다.</div>`;
-    }
-    inputBox.disabled = false;
-    sendButton.disabled = false;
-    inputBox.style.opacity = 1;
-    sendButton.style.opacity = 1;
+    console.error(err);
+    document.getElementById(loadId).innerText = "⚠️ 오류";
+    [$box(), sendBtn].forEach(el => { el.disabled = false; el.style.opacity = 1; });
+  }
+  isWaiting = false;
+}
+
+function resetSession() { sessionStorage.removeItem("session_id"); location.reload(); }
+
+// --------------------------------------------------
+// BOOTSTRAP ----------------------------------------
+// --------------------------------------------------
+window.onload = async () => {
+  session_id = sessionStorage.getItem("session_id");
+  if (!session_id) {
+    session_id = (await (await fetch("/init-session", { method: "POST" })).json()).session_id;
+    sessionStorage.setItem("session_id", session_id);
   }
 
-  isWaiting = false;
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
+  const dm = await (await fetch("/default-message")).json();
+  $box().value = dm.default_message; $box().placeholder = PH_DEFAULT;
 
-function resetSession() {
-  sessionStorage.removeItem("session_id");
-  location.reload();
-}
+  if ((await (await fetch("/status")).json()).ready) appendMessage("bot", "안녕하세요, 공황 응급 지원입니다. 어떻게 도와드릴까요?");
+};
