@@ -44,6 +44,7 @@ This project implements a chatbot system for providing **Psychological First Aid
 | `vllm_model_path`  | Path to local LLM model                  |
 | `vllm_model_name`  | Internal name for model (e.g., `pacer`)  |
 | `gemini_api_key`   | Google Gemini API key                    |
+| `openai_api_key`   | OPENAI API key                           |
 | `max_model_length` | Context window size                      |
 | `max_new_tokens`   | Maximum tokens to generate per response  |
 

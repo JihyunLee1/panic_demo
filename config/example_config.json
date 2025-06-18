@@ -5,6 +5,7 @@
     "first_words" : "안녕하세요, 공황 응급 지원입니다. 어떻게 도와드릴까요?",
     "last_words" : "힘든 시간을 잘 이겨내셨습니다. 공황상태가 찾아오면 언제든 다시 찾아주세요.",
     "gemini_api_key" : "<YOUR_GEMINI_API_KEY>",
+    "openai_api_key": "<YOUR_OPENAI_API_KEY>",
     "gemini_model_name": "gemini-2.0-flash",
     "vllm_server_port": 8001,
     "chatbot_api_port": 8000,
