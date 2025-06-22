@@ -93,12 +93,12 @@ async function toggleRecording() {
 // --------------------------------------------------
 // CHAT ---------------------------------------------
 // --------------------------------------------------
-function appendMessage(role, msg) {
+function appendMessage(role, msg, suppressTTS = false) {
   const cls = role === "user" ? "user-msg self-end" : "bot-msg";
   const who = role === "user" ? "You" : "Bot";
   $chat().insertAdjacentHTML("beforeend", `<div class="${cls}"><strong>${who}:</strong> ${msg}</div>`);
   $chat().scrollTop = $chat().scrollHeight;
-  if (role === "bot") playTTS(msg);
+  if (role === "bot" && !suppressTTS) playTTS(msg);
 }
 
 function handleKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!e.repeat) sendMessage(); } }
@@ -148,5 +148,6 @@ window.onload = async () => {
   const dm = await (await fetch("/default-message")).json();
   $box().value = dm.default_message; $box().placeholder = PH_DEFAULT;
 
-  if ((await (await fetch("/status")).json()).ready) appendMessage("bot", "안녕하세요, 공황 응급 지원입니다. 어떻게 도와드릴까요?");
+if ((await (await fetch("/status")).json()).ready)
+  appendMessage("bot", "안녕하세요, 공황 응급 지원입니다. 어떻게 도와드릴까요?", true);
 };
