@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import threading
 import json
+import subprocess
+import requests
 # from simple_history import History
 from logger import Logger
 from checker import Checker
@@ -218,27 +220,47 @@ async def speech_to_text(file: UploadFile = File(...)):
     }:
         raise HTTPException(status_code=415, detail="Unsupported audio format")
 
-    # 1) 임시 파일 저장  ------------------------------------------
-    suffix = Path(file.filename).suffix or ".webm"
-    async with aiofiles.tempfile.NamedTemporaryFile(
-        delete=False, suffix=suffix
-    ) as tmp:
-        await tmp.write(await file.read())
-        tmp_path = tmp.name
+    # 1) 원본 임시 파일 저장
+    input_suffix = Path(file.filename).suffix or ".webm"
+    async with aiofiles.tempfile.NamedTemporaryFile(delete=False, suffix=input_suffix) as tmp_in:
+        await tmp_in.write(await file.read())
+        input_path = tmp_in.name
 
-    # 2) Whisper 호출 (비동기 클라이언트)  ------------------------
-    client = openai.AsyncOpenAI(api_key=api_key)
+    # 2) 변환된 WAV 파일 경로 지정
+    output_path = input_path.replace(input_suffix, ".wav")
+
+    # 3) ffmpeg로 WAV로 변환
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", input_path, "-ar", "16000", "-ac", "1", output_path],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        raise HTTPException(status_code=500, detail="Failed to convert audio to WAV format")
+
+
+
+    # Whisper 호출 (비동기 클라이언트 아님, HTTP proxy 방식) ------------------------
+    url = "http://platon.postech.ac.kr:14000/asr/asr"
+    headers = {}
+    data = {'language': 'Korean'}
 
     try:
-        with open(tmp_path, "rb") as audio_f:      # 동기 open
-            transcription = await client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_f,                       # io.IOBase 지원
-                response_format="text",
-                language="ko"
-            )
+        with open(output_path, "rb") as f:
+            files = {
+                'file': ('[PROXY]', f, 'audio/wav'),  # webm → wav 로 변경
+            }
+            response = json.loads(requests.post(url, data=data, files=files).text)
+            transcription = response[0]['transcription'].strip() if response else ""
+            
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Whisper 요청 실패: {e}")
     finally:
-        Path(tmp_path).unlink(missing_ok=True)  # 임시 파일 삭제
+        Path(output_path).unlink(missing_ok=True)  # 임시 파일 삭제
+        Path(input_path).unlink(missing_ok=True)  # 임시 파일 삭제
 
     return {"transcript": transcription.strip()}
 
@@ -246,24 +268,38 @@ async def speech_to_text(file: UploadFile = File(...)):
 
 @app.get("/tts")
 async def tts(text: str = Query(..., max_length=500)):
-    VOICE = "alloy"   
-    """
-    ?text= 인코딩된 문장을 받아 OpenAI TTS mp3 스트림 반환
-    """
-    client = AsyncOpenAI(api_key=app.state.config.get("openai_api_key"))
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="Empty text")
-    # pdb.set_trace()  # 디버깅용
-    # OpenAI TTS 호출 (async)
-    try:
-        response = await client.audio.speech.create(
-            model="tts-1",      # 최신 모델
-            voice=VOICE,
-            input=text,
-            response_format="mp3"   # ← 여기!
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"TTS error: {e}")
+
+    headers = {
+    "Content-Type": "application/json"
+    }
+
+    payload = {
+        "text": text,
+        "speaker": "0"
+    }
+    url = "http://platon.postech.ac.kr:14000/tts/tts"
+
+
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    print(response)
+    # VOICE = "alloy"   
+    # """
+    # ?text= 인코딩된 문장을 받아 OpenAI TTS mp3 스트림 반환
+    # """
+    # client = AsyncOpenAI(api_key=app.state.config.get("openai_api_key"))
+    # if not text.strip():
+    #     raise HTTPException(status_code=400, detail="Empty text")
+    # # pdb.set_trace()  # 디버깅용
+    # # OpenAI TTS 호출 (async)
+    # try:
+    #     response = await client.audio.speech.create(
+    #         model="tts-1",      # 최신 모델
+    #         voice=VOICE,
+    #         input=text,
+    #         response_format="mp3"   # ← 여기!
+    #     )
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"TTS error: {e}")
 
     # 응답은 bytes
     audio_bytes = response.content  
